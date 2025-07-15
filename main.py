@@ -1,28 +1,38 @@
-import socket
+import os
 import time
 
 from picamera2 import Picamera2
-from picamera2.encoders import H264Encoder
-from picamera2.outputs import FileOutput
+
+# Créer un dossier pour sauvegarder les images s'il n'existe pas
+output_dir = "captures"
+os.makedirs(output_dir, exist_ok=True)
 
 picam2 = Picamera2()
-video_config = picam2.create_video_configuration({"size": (1280, 720)})
-picam2.configure(video_config)
-encoder = H264Encoder(1000000)
+# Il n'est pas nécessaire d'avoir une configuration de prévisualisation pour la capture de fichiers
+camera_config = picam2.create_still_configuration()
+picam2.configure(camera_config)
+picam2.start()
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind(("0.0.0.0", 10001))
-    sock.listen()
+# Laisser le temps à la caméra de s'ajuster à la lumière
+time.sleep(2)
 
-    picam2.encoders = encoder
+try:
+    print("Démarrage de la capture en continu. Appuyez sur Ctrl+C pour arrêter.")
+    while True:
+        # Générer un nom de fichier unique avec un horodatage
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        filepath = os.path.join(output_dir, f"capture_{timestamp}.jpg")
 
-    conn, addr = sock.accept()
-    stream = conn.makefile("wb")
-    encoder.output = FileOutput(stream)
-    picam2.start_encoder(encoder)
-    picam2.start()
-    time.sleep(20)
+        # Capturer l'image
+        picam2.capture_file(filepath)
+        print(f"Image capturée : {filepath}")
+
+        # Attendre un court instant avant la prochaine capture
+        time.sleep(1)  # Capturer une image chaque seconde
+
+except KeyboardInterrupt:
+    print("\nArrêt de la capture.")
+
+finally:
     picam2.stop()
-    picam2.stop_encoder()
-    conn.close()
+    print("Caméra arrêtée.")
