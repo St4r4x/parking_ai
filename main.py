@@ -1,8 +1,8 @@
 import cv2
 import numpy as np
-from picamera2 import PiCamera2
+from picamera2 import Picamera2
 
-picam2 = PiCamera2()
+picam2 = Picamera2()
 
 config = picam2.create_preview_configuration(main={"size": (640, 480)})
 picam2.configure(config)
