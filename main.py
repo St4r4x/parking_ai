@@ -1,68 +1,86 @@
 import time
 
-import imutils
+import cv2
 import numpy as np
+import pytesseract
 from picamera2 import Picamera2
 
 picam2 = Picamera2()
 # Utiliser une configuration adaptée à la capture en mémoire
-camera_config = picam2.create_still_configuration()
+camera_config = picam2.create_still_configuration(main={"size": (1024, 576)})
 picam2.configure(camera_config)
 picam2.start()
 
 # Laisser le temps à la caméra de s'ajuster à la lumière
 time.sleep(2)
 
-
 try:
-    print("Démarrage de la capture en mémoire. Appuyez sur Ctrl+C pour arrêter.")
+    print("Démarrage de la détection. Appuyez sur Ctrl+C pour arrêter.")
 
     # Boucle de capture en continu
     while True:
-        # Capturer l'image sous forme de tableau NumPy
+        # Capturer l'image sous forme de tableau NumPy (format RGB)
         image_array = picam2.capture_array()
-        img = cv2.resize(image_array, (620, 480))
-        # convert to grey scale
-        gray = cv2.cvtColor(image_array, cv2.COLOR_BGR2GRAY)
+
+        # Convertir l'image de RGB (picamera2) à BGR (OpenCV) pour l'affichage
+        img_bgr = cv2.cvtColor(image_array, cv2.COLOR_RGB2BGR)
+
+        # Convertir en niveaux de gris pour le traitement
+        gray = cv2.cvtColor(image_array, cv2.COLOR_RGB2GRAY)
         gray = cv2.bilateralFilter(gray, 11, 17, 17)
 
-        edged = cv2.Canny(gray, 30, 200)  # Perform Edge detection
-        cnts = cv2.findContours(
+        edged = cv2.Canny(gray, 30, 200)  # Détection des contours
+
+        # Remplacement de imutils.grab_contours
+        contours_tuple = cv2.findContours(
             edged.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        cnts = imutils.grab_contours(cnts)
+        cnts = contours_tuple[0] if len(
+            contours_tuple) == 2 else contours_tuple[1]
+
         cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:10]
         screenCnt = None
-        # loop over our contours
+
+        # Boucle sur les contours
         for c in cnts:
-            # approximate the contour
             peri = cv2.arcLength(c, True)
             approx = cv2.approxPolyDP(c, 0.018 * peri, True)
-            # if our approximated contour has four points, then
-            # we can assume that we have found our screen
             if len(approx) == 4:
                 screenCnt = approx
                 break
 
-        # Masking the part other than the number plate
-        mask = np.zeros(gray.shape, np.uint8)
-        new_image = cv2.drawContours(mask, [screenCnt], 0, 255, -1,)
-        new_image = cv2.bitwise_and(img, img, mask=mask)
+        # Si un contour de plaque est trouvé, le traiter
+        if screenCnt is not None:
+            # Dessiner le contour pour l'affichage
+            cv2.drawContours(img_bgr, [screenCnt], -1, (0, 255, 0), 3)
 
-        (x, y) = np.where(mask == 255)
-        (topx, topy) = (np.min(x), np.min(y))
-        (bottomx, bottomy) = (np.max(x), np.max(y))
-        Cropped = gray[topx:bottomx+1, topy:bottomy+1]
+            # Masquer tout sauf la plaque
+            mask = np.zeros(gray.shape, np.uint8)
+            cv2.drawContours(mask, [screenCnt], 0, 255, -1)
 
-        # Read the number plate
-        text = pytesseract.image_to_string(Cropped, config='--psm 11')
-        print("Detected Number is:", text)
+            # Extraire la plaque de l'image en niveaux de gris
+            (x, y) = np.where(mask == 255)
+            (topx, topy) = (np.min(x), np.min(y))
+            (bottomx, bottomy) = (np.max(x), np.max(y))
+            Cropped = gray[topx:bottomx + 1, topy:bottomy + 1]
 
-        # Attendre 1 seconde avant la prochaine capture
-        time.sleep(1)
+            # Lire le texte de la plaque
+            text = pytesseract.image_to_string(Cropped, config='--psm 11')
+            print(f"Numéro détecté : {text.strip()}")
+
+            # Afficher l'image recadrée
+            cv2.imshow("Plaque recadrée", Cropped)
+
+        # Afficher le flux vidéo principal
+        cv2.imshow("Détection de plaque", img_bgr)
+
+        # Quitter avec 'q'
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
 except KeyboardInterrupt:
     print("\nArrêt de la capture demandé par l'utilisateur.")
 
 finally:
     picam2.stop()
-    print("Caméra arrêtée.")
+    cv2.destroyAllWindows()
+    print("Caméra et fenêtres fermées.")
