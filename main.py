@@ -1,8 +1,9 @@
+import os  # Pour la gestion des fichiers temporaires
+import subprocess  # Remplacement de pytesseract
 import time
 
 import cv2
 import numpy as np
-import pytesseract
 from picamera2 import Picamera2
 
 picam2 = Picamera2()
@@ -14,8 +15,11 @@ picam2.start()
 # Laisser le temps à la caméra de s'ajuster à la lumière
 time.sleep(2)
 
+# Créer un nom de fichier temporaire pour l'image de la plaque
+temp_image_path = "/tmp/plate.png"
+
 try:
-    print("Démarrage de la détection. Appuyez sur Ctrl+C pour arrêter.")
+    print("Démarrage de la détection. Appuyez sur Ctrl+C ou 'q' pour arrêter.")
 
     # Boucle de capture en continu
     while True:
@@ -59,16 +63,31 @@ try:
 
             # Extraire la plaque de l'image en niveaux de gris
             (x, y) = np.where(mask == 255)
-            (topx, topy) = (np.min(x), np.min(y))
-            (bottomx, bottomy) = (np.max(x), np.max(y))
-            Cropped = gray[topx:bottomx + 1, topy:bottomy + 1]
+            if x.size > 0 and y.size > 0:  # S'assurer que la plaque n'est pas vide
+                (topx, topy) = (np.min(x), np.min(y))
+                (bottomx, bottomy) = (np.max(x), np.max(y))
+                Cropped = gray[topx:bottomx + 1, topy:bottomy + 1]
 
-            # Lire le texte de la plaque
-            text = pytesseract.image_to_string(Cropped, config='--psm 11')
-            print(f"Numéro détecté : {text.strip()}")
+                # Sauvegarder l'image recadrée temporairement
+                cv2.imwrite(temp_image_path, Cropped)
 
-            # Afficher l'image recadrée
-            cv2.imshow("Plaque recadrée", Cropped)
+                # Utiliser subprocess pour appeler Tesseract
+                try:
+                    result = subprocess.run(
+                        ['tesseract', temp_image_path, 'stdout', '--psm', '11'],
+                        capture_output=True,
+                        text=True,
+                        check=True
+                    )
+                    text = result.stdout.strip()
+                    if text:
+                        print(f"Numéro détecté : {text}")
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    print(
+                        "Erreur: Assurez-vous que 'tesseract-ocr' est installé et dans le PATH.")
+
+                # Afficher l'image recadrée
+                cv2.imshow("Plaque recadrée", Cropped)
 
         # Afficher le flux vidéo principal
         cv2.imshow("Détection de plaque", img_bgr)
@@ -83,4 +102,7 @@ except KeyboardInterrupt:
 finally:
     picam2.stop()
     cv2.destroyAllWindows()
+    # Supprimer le fichier temporaire
+    if os.path.exists(temp_image_path):
+        os.remove(temp_image_path)
     print("Caméra et fenêtres fermées.")
