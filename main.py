@@ -22,7 +22,7 @@ fourcc = cv2.VideoWriter_fourcc(*"XVID")
 out = cv2.VideoWriter("output.avi", fourcc, save_fps, (1024, 576))
  
 while True:
-    ret, frame = capture.read()
+    ret, frame = capture.read(0)
     if not ret:
         break
  
