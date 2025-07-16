@@ -3,7 +3,7 @@
 import os
 import subprocess
 import cv2
-from .config import TEMP_IMAGE_PATH, TESSERACT_PSM, TESSERACT_LANG
+from config import TEMP_IMAGE_PATH, TESSERACT_PSM, TESSERACT_LANG
 
 
 class OCRProcessor:

@@ -1,51 +1,73 @@
 # Détection de Plaques d'Immatriculation sur Raspberry Pi
 
-Ce projet utilise un Raspberry Pi 3B+ et une caméra Pi pour détecter et reconnaître en temps réel les plaques d'immatriculation à partir d'un flux vidéo. Le script est conçu pour fonctionner sans interface graphique (headless), en affichant les numéros de plaque détectés directement dans le terminal.
+Ce projet utilise un Raspberry Pi et une caméra Pi pour détecter et reconnaître en temps réel les plaques d'immatriculation. Le système fonctionne en mode headless et affiche les numéros détectés dans le terminal.
+
+## Structure du Projet
+
+```text
+parking_ai/
+├── main.py                          # Point d'entrée principal
+├── install.sh                       # Script d'installation automatique
+├── test_system.py                   # Script de test des dépendances
+├── README.md                        # Documentation
+└── src/                             # Code source modulaire
+    ├── __init__.py                  # Package initialization
+    ├── license_plate_detector.py    # Orchestrateur principal
+    ├── camera_manager.py            # Gestion de la caméra
+    ├── plate_detector.py            # Détection de plaques
+    ├── ocr_processor.py             # Traitement OCR
+    └── config.py                    # Configuration des paramètres
+```
 
 ## Matériel Requis
 
 - Raspberry Pi 3B+ (ou modèle supérieur)
 - Caméra pour Raspberry Pi (Pi Camera)
-- Une alimentation stable pour le Raspberry Pi
+- Alimentation stable pour le Raspberry Pi
 
 ## Installation
 
-Suivez ces étapes pour configurer votre Raspberry Pi.
+### Installation automatique (recommandée)
 
-### 1. Mettre à jour le système
-
-Assurez-vous que votre système d'exploitation est à jour :
+Utilisez le script d'installation fourni :
 
 ```bash
-sudo apt-get update
-sudo apt-get upgrade
+chmod +x install.sh
+./install.sh
 ```
 
-### 2. Installer les dépendances système
+### Installation manuelle
 
-Ce projet repose sur **OpenCV** pour le traitement d'image et **Tesseract OCR** pour la reconnaissance de caractères. Installez-les avec les commandes suivantes :
+Si vous préférez installer manuellement les dépendances :
 
 ```bash
+# Mettre à jour le système
+sudo apt-get update
 
-# Installer la bibliothèque Picamera2
+# Installer les dépendances système
+sudo apt-get install -y python3-pip python3-opencv python3-numpy tesseract-ocr tesseract-ocr-fra
+
+# Installer picamera2 pour Raspberry Pi
 sudo apt-get install -y python3-picamera2
-
-# Installer OpenCV pour Python 3
-sudo apt install python3-opencv
-
-# Installer le moteur Tesseract OCR
-sudo apt-get install tesseract-ocr
 ```
 
 ## Utilisation
 
-Une fois l'installation terminée, vous pouvez lancer le script de détection.
+### Test du système
+
+Avant de lancer le programme principal, vous pouvez tester que tout fonctionne :
 
 ```bash
-python main.py
+python3 test_system.py
 ```
 
-Le script démarrera et affichera le message `Démarrage de la détection en arrière-plan...`. Lorsqu'une plaque d'immatriculation est détectée et reconnue, le numéro s'affichera dans le terminal.
+### Lancement du programme
+
+```bash
+python3 main.py
+```
+
+Le programme démarrera et affichera `Démarrage de la détection en arrière-plan...`.
 
 Pour arrêter le script, appuyez sur `Ctrl+C`.
 
@@ -53,10 +75,50 @@ Pour arrêter le script, appuyez sur `Ctrl+C`.
 
 Le processus de détection se déroule en plusieurs étapes pour chaque image capturée par la caméra :
 
-1.  **Capture d'image** : Une image est capturée depuis la caméra Pi.
-2.  **Prétraitement** : L'image est convertie en niveaux de gris et un filtre est appliqué pour réduire le bruit.
-3.  **Détection des contours** : L'algorithme de Canny est utilisé pour trouver les contours dans l'image.
-4.  **Localisation de la plaque** : Le script recherche des contours rectangulaires qui ressemblent à une plaque d'immatriculation.
-5.  **Extraction de la plaque** : Si une plaque potentielle est trouvée, elle est recadrée du reste de l'image.
-6.  **Reconnaissance de caractères (OCR)** : L'image de la plaque est envoyée à Tesseract, qui tente de lire les caractères.
-7.  **Affichage** : Le texte reconnu est affiché dans le terminal.
+1. **Capture d'image** : Une image est capturée depuis la caméra Pi
+2. **Prétraitement** : L'image est convertie en niveaux de gris et filtrée pour réduire le bruit
+3. **Détection des contours** : L'algorithme de Canny trouve les contours dans l'image
+4. **Localisation de la plaque** : Recherche de contours rectangulaires ressemblant à une plaque
+5. **Extraction de la plaque** : La plaque potentielle est recadrée du reste de l'image
+6. **Reconnaissance OCR** : Tesseract lit les caractères de la plaque
+7. **Affichage** : Le texte reconnu est affiché dans le terminal
+
+## Configuration
+
+Les paramètres peuvent être modifiés dans `src/config.py` :
+
+- `CAMERA_SIZE` : Taille de l'image de la caméra (par défaut 1024x576)
+- `CANNY_LOW_THRESHOLD` / `CANNY_HIGH_THRESHOLD` : Seuils de détection des contours
+- `TESSERACT_PSM` : Mode de segmentation de page pour Tesseract
+- `TESSERACT_LANG` : Langue de reconnaissance (par défaut 'eng')
+- `LOOP_DELAY` : Délai entre chaque capture (par défaut 0.1 secondes)
+
+## Dépannage
+
+### Erreurs communes
+
+- **ImportError: attempted relative import with no known parent package**
+  - Solution : Les imports ont été corrigés pour utiliser des imports absolus
+- **ModuleNotFoundError: No module named 'picamera2'**
+  - Solution : Installez avec `sudo apt-get install -y python3-picamera2`
+- **ModuleNotFoundError: No module named 'cv2'**
+  - Solution : Installez avec `sudo apt-get install -y python3-opencv`
+- **Erreur de caméra** : Assurez-vous que la caméra Pi est bien connectée et activée
+  - Vérifiez avec `vcgencmd get_camera`
+- **Tesseract non trouvé** : Vérifiez que `tesseract-ocr` est installé
+  - Testez avec `tesseract --version`
+- **Performances lentes** : Augmentez `LOOP_DELAY` dans la configuration
+- **Détection imprécise** : Ajustez les seuils dans `config.py`
+
+### Prérequis système
+
+Assurez-vous que votre Raspberry Pi est configuré correctement :
+
+```bash
+# Activer la caméra (si nécessaire)
+sudo raspi-config
+# Interface Options > Camera > Enable
+
+# Redémarrer après activation
+sudo reboot
+```

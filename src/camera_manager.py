@@ -2,7 +2,7 @@
 
 import time
 from picamera2 import Picamera2
-from .config import CAMERA_SIZE, CAMERA_WARMUP_TIME
+from config import CAMERA_SIZE, CAMERA_WARMUP_TIME
 
 
 class CameraManager:

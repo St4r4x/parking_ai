@@ -1,10 +1,10 @@
 """Module principal pour le système de détection de plaques d'immatriculation."""
 
 import time
-from .camera_manager import CameraManager
-from .plate_detector import PlateDetector
-from .ocr_processor import OCRProcessor
-from .config import LOOP_DELAY
+from camera_manager import CameraManager
+from plate_detector import PlateDetector
+from ocr_processor import OCRProcessor
+from config import LOOP_DELAY
 
 
 class LicensePlateDetector:
